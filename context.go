@@ -21,7 +21,7 @@ const (
 type BeforeCreatedContext interface {
 	DB() *pg.DB
 	LoadFromEnv(opt interface{})
-	InitConfig(key string, opt interface{}) error
+	InitConfig(key string, opt interface{})
 	LoadConfig(key string, opt interface{}) error
 	SaveConfig(key string, opt interface{}) error
 	Add(def ...di.Def)
@@ -73,11 +73,11 @@ func (c *moduleContext) LoadFromEnv(opt interface{}) {
 	c.logger.Debugf("Option value after loaded from env, %+v", opt)
 }
 
-func (c *moduleContext) InitConfig(key string, opt interface{}) error {
+func (c *moduleContext) InitConfig(key string, opt interface{}) {
 	marshaller := conjson.NewMarshaler(opt, transform.ConventionalKeys())
 	data, err := json.Marshal(marshaller)
 	if err != nil {
-		return err
+		c.logger.Fatalf("Init config error, %s", err.Error())
 	}
 
 	cfg := Config{
@@ -85,9 +85,8 @@ func (c *moduleContext) InitConfig(key string, opt interface{}) error {
 		Data: data,
 	}
 	if _, err := c.app.db.Model(&cfg).OnConflict("DO NOTHING").SelectOrInsert(); err != nil {
-		return err
+		c.logger.Fatalf("Init config error, %s", err.Error())
 	}
-	return nil
 }
 
 func (c *moduleContext) LoadConfig(key string, opt interface{}) error {
