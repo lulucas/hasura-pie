@@ -1,6 +1,7 @@
 package pie
 
 import (
+	"encoding/json"
 	"github.com/joho/godotenv"
 	"os"
 	"strings"
@@ -24,4 +25,9 @@ func init() {
 
 func IsProduction() bool {
 	return strings.ToLower(os.Getenv("APP_PRODUCTION")) == "true"
+}
+
+type Config struct {
+	Key  string
+	Data json.RawMessage
 }

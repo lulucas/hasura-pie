@@ -2,10 +2,16 @@ package pie
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/Rican7/conjson"
+	"github.com/Rican7/conjson/transform"
+	"github.com/go-pg/pg/v9"
 	"github.com/labstack/echo/v4"
+	"github.com/pkg/errors"
 	"github.com/sarulabs/di"
 	uuid "github.com/satori/go.uuid"
 	"github.com/vrischmann/envconfig"
+	"reflect"
 )
 
 const (
@@ -13,32 +19,29 @@ const (
 )
 
 type BeforeCreatedContext interface {
-	// 加载环境变量
+	DB() *pg.DB
 	LoadFromEnv(opt interface{})
-	// 添加注入对象
+	InitConfig(opt interface{}) error
+	LoadConfig(opt interface{}) error
+	SaveConfig(opt interface{}) error
 	Add(def ...di.Def)
 }
 
 type CreatedContext interface {
-	// 获取Session
+	DB() *pg.DB
 	GetSession(ctx context.Context) Session
-	// 获取注入对象
 	Get(name string) interface{}
-	// 日志
 	Logger() Logger
-	// Http
 	Http() *echo.Echo
-	// 处理动作
 	HandleAction(name string, handler interface{})
-	// 处理事件
 	HandleEvent(name string, handler interface{})
+	LoadConfig(opt interface{}) error
+	SaveConfig(opt interface{}) error
 }
 
 type Session struct {
-	// 用户编号
 	UserId uuid.UUID
-	// 用户角色
-	Role string
+	Role   string
 }
 
 type moduleContext struct {
@@ -55,6 +58,10 @@ func newModuleContext(app *App, module string) *moduleContext {
 	}
 }
 
+func (c *moduleContext) DB() *pg.DB {
+	return c.app.db
+}
+
 func (c *moduleContext) GetSession(ctx context.Context) Session {
 	return ctx.Value(sessionName).(Session)
 }
@@ -64,6 +71,64 @@ func (c *moduleContext) LoadFromEnv(opt interface{}) {
 		c.logger.Fatalf("Load env error, %s", err.Error())
 	}
 	c.logger.Debugf("Option value after loaded from env, %+v", opt)
+}
+
+func (c *moduleContext) InitConfig(opt interface{}) error {
+	marshaller := conjson.NewMarshaler(opt, transform.ConventionalKeys())
+	data, err := json.Marshal(marshaller)
+	if err != nil {
+		return err
+	}
+
+	key := reflect.TypeOf(opt).Name()
+	cfg := Config{
+		Key:  key,
+		Data: data,
+	}
+	if _, err := c.app.db.Model(&cfg).OnConflict("DO NOTHING").SelectOrInsert(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *moduleContext) LoadConfig(opt interface{}) error {
+	t := reflect.TypeOf(opt)
+	if t.Kind() != reflect.Ptr {
+		return errors.New("opt must be pointer")
+	}
+
+	key := t.Elem().Name()
+	cfg := Config{
+		Key: key,
+	}
+	if err := c.app.db.Model(&cfg).Where("key = ?", key).Select(); err != nil {
+		if err == pg.ErrNoRows {
+			return errors.Errorf("config key %s not found", key)
+		}
+		return err
+	}
+	if err := json.Unmarshal(cfg.Data, conjson.NewUnmarshaler(opt, transform.ConventionalKeys())); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *moduleContext) SaveConfig(opt interface{}) error {
+	marshaller := conjson.NewMarshaler(opt, transform.ConventionalKeys())
+	data, err := json.Marshal(marshaller)
+	if err != nil {
+		return err
+	}
+
+	key := reflect.TypeOf(opt).Name()
+	cfg := Config{
+		Key:  key,
+		Data: data,
+	}
+	if _, err := c.app.db.Model(&cfg).Where("key = ?", key).Update(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *moduleContext) Add(def ...di.Def) {

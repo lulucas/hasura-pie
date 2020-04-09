@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-pg/pg/v9"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
@@ -23,15 +24,19 @@ type App struct {
 	builder      *di.Builder
 	container    di.Container
 	opt          *option
+	db           *pg.DB
 }
 
 func NewApp() *App {
 	logger := NewLogger()
 	builder, _ := di.NewBuilder()
 	opt := &option{}
-	if err := envconfig.InitWithPrefix(opt, "APP_"); err != nil {
+	if err := envconfig.InitWithPrefix(opt, "APP"); err != nil {
 		logger.Fatalf("Load env error, %s", err.Error())
 	}
+
+	db := newDB(logger)
+
 	return &App{
 		internalEcho: echo.New(),
 		externalEcho: echo.New(),
@@ -40,6 +45,7 @@ func NewApp() *App {
 		logger:       logger,
 		builder:      builder,
 		opt:          opt,
+		db:           db,
 	}
 }
 
