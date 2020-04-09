@@ -10,7 +10,7 @@ type dbOption struct {
 	Host     string `envconfig:"default=127.0.0.1"`
 	Port     int    `envconfig:"default=5432"`
 	User     string `envconfig:"default=postgres"`
-	Password string `envconfig:"optional"`
+	Password string `envconfig:"default=postgres"`
 	Database string `envconfig:"default=postgres"`
 }
 
