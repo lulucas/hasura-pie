@@ -4,8 +4,10 @@ A project toolkit for hasura and golang
 
 # Quick start
 
+Install CLI
+
 ```
-github.com/lulucas/hasura-pie
+go get github.com/lulucas/hasura-pie-cli
 ```
 
 # Project structure
@@ -29,6 +31,8 @@ pie g m account
 Sync action from hasura
 
 ## Config
+
+Create config.yml in cli work directory
 
 ```
 postgres:

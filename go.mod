@@ -1,4 +1,4 @@
-module github.com/lulucas/hasura-pie/v1
+module github.com/lulucas/hasura-pie
 
 go 1.13
 
