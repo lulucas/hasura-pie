@@ -1,6 +1,6 @@
 # Hasura-pie 🥧
 
-A project toolkit for hasura and golang
+A project toolkit for hasura and golang (Unstable)
 
 # Quick start
 
