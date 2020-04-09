@@ -79,7 +79,7 @@ func (c *moduleContext) Logger() Logger {
 }
 
 func (c *moduleContext) Http() *echo.Echo {
-	return c.app.internalEcho
+	return c.app.externalEcho
 }
 
 // Timer task TODO

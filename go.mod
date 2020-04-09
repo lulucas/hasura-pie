@@ -1,6 +1,6 @@
 module github.com/lulucas/hasura-pie
 
-go 1.13
+go 1.14
 
 require (
 	github.com/Rican7/conjson v0.1.0

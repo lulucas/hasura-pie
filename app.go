@@ -34,6 +34,7 @@ func NewApp() *App {
 	}
 	return &App{
 		internalEcho: echo.New(),
+		externalEcho: echo.New(),
 		actions:      map[string]Handler{},
 		events:       map[string]Handler{},
 		logger:       logger,
@@ -67,15 +68,12 @@ func (a *App) addDef(def ...di.Def) {
 }
 
 func (a *App) Start() {
-	// 准备阶段
 	for _, m := range a.modules {
 		m.BeforeCreated(newModuleContext(a, getModuleName(m)))
 	}
 
-	// 构建注入容器
 	a.container = a.builder.Build()
 
-	// 完成阶段
 	for _, m := range a.modules {
 		m.Created(newModuleContext(a, getModuleName(m)))
 	}
@@ -84,7 +82,10 @@ func (a *App) Start() {
 	a.internalEcho.HideBanner = true
 	a.internalEcho.Use(middleware.CORS())
 
-	// DO NOT EXPOSE INTERNAL ECHO PORT TO PUBLIC NETWORK !!!
+	a.externalEcho.HidePort = true
+	a.externalEcho.HideBanner = true
+	a.externalEcho.Use(middleware.CORS())
+
 	// Handle hasura actions
 	a.internalEcho.POST("/actions", func(c echo.Context) error {
 		act := Action{}
@@ -139,19 +140,25 @@ func (a *App) Start() {
 			}
 			return c.JSONBlob(http.StatusOK, res)
 		} else {
-			return errors.Errorf("RawEvent %s not found", rawEvt.Trigger.Name)
+			return errors.Errorf("Event %s not found", rawEvt.Trigger.Name)
 		}
 	})
 
-	// 打印监听端口
+	// DO NOT EXPOSE INTERNAL ECHO PORT TO PUBLIC NETWORK !!!
 	if !IsProduction() {
-		a.logger.WithField("core", "http").Warnf("Listen internal http on http://127.0.0.1:%d", a.opt.InternalPort)
+		a.logger.WithField("core", "api").Infof("Listen internal http on http://127.0.0.1:%d", a.opt.InternalPort)
 	} else {
-		a.logger.WithField("core", "http").Warnf("Listen internal http on http://0.0.0.0:%d", a.opt.InternalPort)
+		a.logger.WithField("core", "api").Warnf("Listen internal http on http://0.0.0.0:%d", a.opt.InternalPort)
 	}
+	a.logger.WithField("core", "rest").Infof("Listen external http on http://127.0.0.1:%d", a.opt.ExternalPort)
 
-	// 启动监听
-	if err := a.internalEcho.Start(fmt.Sprintf(":%d", a.opt.InternalPort)); err != nil {
-		a.logger.WithField("core", "http").Fatalf("Listen error %s", err.Error())
+	// start
+	go func() {
+		if err := a.internalEcho.Start(fmt.Sprintf(":%d", a.opt.InternalPort)); err != nil {
+			a.logger.WithField("core", "api").Fatalf("Listen error %s", err.Error())
+		}
+	}()
+	if err := a.externalEcho.Start(fmt.Sprintf(":%d", a.opt.ExternalPort)); err != nil {
+		a.logger.WithField("core", "rest").Fatalf("Listen error %s", err.Error())
 	}
 }
