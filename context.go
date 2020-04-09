@@ -21,9 +21,9 @@ const (
 type BeforeCreatedContext interface {
 	DB() *pg.DB
 	LoadFromEnv(opt interface{})
-	InitConfig(opt interface{}) error
-	LoadConfig(opt interface{}) error
-	SaveConfig(opt interface{}) error
+	InitConfig(key string, opt interface{}) error
+	LoadConfig(key string, opt interface{}) error
+	SaveConfig(key string, opt interface{}) error
 	Add(def ...di.Def)
 }
 
@@ -35,8 +35,8 @@ type CreatedContext interface {
 	Http() *echo.Echo
 	HandleAction(name string, handler interface{})
 	HandleEvent(name string, handler interface{})
-	LoadConfig(opt interface{}) error
-	SaveConfig(opt interface{}) error
+	LoadConfig(key string, opt interface{}) error
+	SaveConfig(key string, opt interface{}) error
 }
 
 type Session struct {
@@ -73,14 +73,13 @@ func (c *moduleContext) LoadFromEnv(opt interface{}) {
 	c.logger.Debugf("Option value after loaded from env, %+v", opt)
 }
 
-func (c *moduleContext) InitConfig(opt interface{}) error {
+func (c *moduleContext) InitConfig(key string, opt interface{}) error {
 	marshaller := conjson.NewMarshaler(opt, transform.ConventionalKeys())
 	data, err := json.Marshal(marshaller)
 	if err != nil {
 		return err
 	}
 
-	key := reflect.TypeOf(opt).Name()
 	cfg := Config{
 		Key:  key,
 		Data: data,
@@ -91,16 +90,13 @@ func (c *moduleContext) InitConfig(opt interface{}) error {
 	return nil
 }
 
-func (c *moduleContext) LoadConfig(opt interface{}) error {
+func (c *moduleContext) LoadConfig(key string, opt interface{}) error {
 	t := reflect.TypeOf(opt)
 	if t.Kind() != reflect.Ptr {
 		return errors.New("opt must be pointer")
 	}
 
-	key := t.Elem().Name()
-	cfg := Config{
-		Key: key,
-	}
+	cfg := Config{}
 	if err := c.app.db.Model(&cfg).Where("key = ?", key).Select(); err != nil {
 		if err == pg.ErrNoRows {
 			return errors.Errorf("config key %s not found", key)
@@ -113,14 +109,13 @@ func (c *moduleContext) LoadConfig(opt interface{}) error {
 	return nil
 }
 
-func (c *moduleContext) SaveConfig(opt interface{}) error {
+func (c *moduleContext) SaveConfig(key string, opt interface{}) error {
 	marshaller := conjson.NewMarshaler(opt, transform.ConventionalKeys())
 	data, err := json.Marshal(marshaller)
 	if err != nil {
 		return err
 	}
 
-	key := reflect.TypeOf(opt).Name()
 	cfg := Config{
 		Key:  key,
 		Data: data,
