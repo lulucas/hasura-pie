@@ -19,7 +19,7 @@ pie init myproject
 # Project structure
 
 ```
-apps
+app
   business # business app for hasura actions, events or normal http request.
     - main.go
     - Dockerfile
@@ -27,8 +27,8 @@ apps
     - docker-compose.prod.yml
     - .env
     - .env.prod
-modules
-models
-  - models_gen.go # models sync from postgres
+module
+model
+  - model_gen.go # models sync from postgres
 ```
 

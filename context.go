@@ -78,14 +78,11 @@ func (c *moduleContext) Logger() Logger {
 	return c.logger
 }
 
-func (c *moduleContext) LoadOption() {
-}
-
 func (c *moduleContext) Http() *echo.Echo {
-	return c.app.e
+	return c.app.internalEcho
 }
 
-// 定时任务
+// Timer task TODO
 func (c *moduleContext) HandleCron() {
 
 }
@@ -98,6 +95,6 @@ func (c *moduleContext) HandleAction(name string, handler interface{}) {
 
 // Hasura event
 func (c *moduleContext) HandleEvent(name string, handler interface{}) {
-	c.logger.Infof("Event handler is added: %s", name)
+	c.logger.Infof("RawEvent handler is added: %s", name)
 	c.app.addEventHandler(name, NewHandler(handler))
 }

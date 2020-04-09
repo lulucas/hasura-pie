@@ -17,16 +17,18 @@ type Action struct {
 	} `json:"session_variables"`
 }
 
-type Event struct {
+type EventTable struct {
+	Schema string `json:"schema"`
+	Name   string `json:"name"`
+}
+
+type RawEvent struct {
 	Id        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	Trigger   struct {
 		Name string `json:"name"`
 	} `json:"trigger"`
-	Table struct {
-		Schema string `json:"schema"`
-		Name   string `json:"name"`
-	} `json:"table"`
+	Table EventTable `json:"table"`
 	Event struct {
 		SessionVariables struct {
 			XHasuraRole         string `json:"x-hasura-role"`
@@ -39,6 +41,15 @@ type Event struct {
 			New json.RawMessage `json:"new"`
 		} `json:"data"`
 	} `json:"event"`
+}
+
+type Event struct {
+	Id        string
+	CreatedAt time.Time
+	Table     EventTable
+	Op        string
+	Old       json.RawMessage
+	New       json.RawMessage
 }
 
 func hasuraErrorResponse(err error) interface{} {

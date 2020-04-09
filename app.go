@@ -2,6 +2,7 @@ package pie
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -13,14 +14,15 @@ import (
 )
 
 type App struct {
-	e         *echo.Echo
-	logger    Logger
-	modules   []Module
-	actions   map[string]Handler
-	events    map[string]Handler
-	builder   *di.Builder
-	container di.Container
-	opt       *option
+	internalEcho *echo.Echo
+	externalEcho *echo.Echo
+	logger       Logger
+	modules      []Module
+	actions      map[string]Handler
+	events       map[string]Handler
+	builder      *di.Builder
+	container    di.Container
+	opt          *option
 }
 
 func NewApp() *App {
@@ -31,17 +33,18 @@ func NewApp() *App {
 		logger.Fatalf("Load env error, %s", err.Error())
 	}
 	return &App{
-		e:       echo.New(),
-		actions: map[string]Handler{},
-		events:  map[string]Handler{},
-		logger:  logger,
-		builder: builder,
-		opt:     opt,
+		internalEcho: echo.New(),
+		actions:      map[string]Handler{},
+		events:       map[string]Handler{},
+		logger:       logger,
+		builder:      builder,
+		opt:          opt,
 	}
 }
 
 type option struct {
-	Port int `envconfig:"default=3000"`
+	InternalPort int `envconfig:"default=3000"`
+	ExternalPort int `envconfig:"default=8000"`
 }
 
 func (a *App) AddModule(module ...Module) {
@@ -77,19 +80,19 @@ func (a *App) Start() {
 		m.Created(newModuleContext(a, getModuleName(m)))
 	}
 
-	a.e.HidePort = true
-	a.e.HideBanner = true
-	a.e.Use(middleware.CORS())
+	a.internalEcho.HidePort = true
+	a.internalEcho.HideBanner = true
+	a.internalEcho.Use(middleware.CORS())
 
-	// 处理动作
-	// 信任来自Action Body Session数据，没有校验机制
-	// 因此接口不能暴露在公网
-	a.e.POST("/actions", func(c echo.Context) error {
+	// DO NOT EXPOSE INTERNAL ECHO PORT TO PUBLIC NETWORK !!!
+	// Handle hasura actions
+	a.internalEcho.POST("/actions", func(c echo.Context) error {
 		act := Action{}
 		if err := c.Bind(&act); err != nil {
 			return c.JSON(http.StatusBadRequest, hasuraErrorResponse(err))
 		}
 		if h, ok := a.actions[act.Action.Name]; ok {
+			a.logger.WithField("core", "action").Infof("Call %s", act.Action.Name)
 			ctx := c.Request().Context()
 			ctx = context.WithValue(ctx, sessionName, Session{
 				UserId: uuid.FromStringOrNil(act.SessionVariables.XHasuraUserId),
@@ -105,17 +108,50 @@ func (a *App) Start() {
 		}
 	})
 
-	// 处理事件
+	// Handle hasura events
+	a.internalEcho.POST("/events", func(c echo.Context) error {
+		rawEvt := RawEvent{}
+		if err := c.Bind(&rawEvt); err != nil {
+			return c.JSON(http.StatusBadRequest, hasuraErrorResponse(err))
+		}
+		if h, ok := a.events[rawEvt.Trigger.Name]; ok {
+			a.logger.WithField("core", "event").Infof("Trigger %s, %s", rawEvt.Trigger.Name, rawEvt.Id)
+			ctx := c.Request().Context()
+			ctx = context.WithValue(ctx, sessionName, Session{
+				UserId: uuid.FromStringOrNil(rawEvt.Event.SessionVariables.XHasuraUserID),
+				Role:   rawEvt.Event.SessionVariables.XHasuraRole,
+			})
+			evt := &Event{
+				Id:        rawEvt.Id,
+				CreatedAt: rawEvt.CreatedAt,
+				Table:     rawEvt.Table,
+				Op:        rawEvt.Event.Op,
+				Old:       rawEvt.Event.Data.Old,
+				New:       rawEvt.Event.Data.New,
+			}
+			payload, err := json.Marshal(evt)
+			if err != nil {
+				return err
+			}
+			res, err := h.Invoke(ctx, payload)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, hasuraErrorResponse(err))
+			}
+			return c.JSONBlob(http.StatusOK, res)
+		} else {
+			return errors.Errorf("RawEvent %s not found", rawEvt.Trigger.Name)
+		}
+	})
 
 	// 打印监听端口
 	if !IsProduction() {
-		a.logger.WithField("core", "http").Warnf("Listen http on http://127.0.0.1:%d", a.opt.Port)
+		a.logger.WithField("core", "http").Warnf("Listen internal http on http://127.0.0.1:%d", a.opt.InternalPort)
 	} else {
-		a.logger.WithField("core", "http").Warnf("Listen http on http://0.0.0.0:%d", a.opt.Port)
+		a.logger.WithField("core", "http").Warnf("Listen internal http on http://0.0.0.0:%d", a.opt.InternalPort)
 	}
 
 	// 启动监听
-	if err := a.e.Start(fmt.Sprintf(":%d", a.opt.Port)); err != nil {
+	if err := a.internalEcho.Start(fmt.Sprintf(":%d", a.opt.InternalPort)); err != nil {
 		a.logger.WithField("core", "http").Fatalf("Listen error %s", err.Error())
 	}
 }
