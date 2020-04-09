@@ -23,7 +23,7 @@ func (handler genericHandler) Invoke(ctx context.Context, payload []byte) ([]byt
 		return nil, err
 	}
 
-	// json字段驼峰转下划线
+	// camel to underline
 	marshaller := conjson.NewMarshaler(response, transform.ConventionalKeys())
 
 	responseBytes, err := json.Marshal(marshaller)
