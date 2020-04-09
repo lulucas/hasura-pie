@@ -95,6 +95,6 @@ func (c *moduleContext) HandleAction(name string, handler interface{}) {
 
 // Hasura event
 func (c *moduleContext) HandleEvent(name string, handler interface{}) {
-	c.logger.Infof("RawEvent handler is added: %s", name)
+	c.logger.Infof("Event handler is added: %s", name)
 	c.app.addEventHandler(name, NewHandler(handler))
 }
