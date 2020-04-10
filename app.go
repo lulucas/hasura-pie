@@ -12,6 +12,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/vrischmann/envconfig"
 	"net/http"
+	"strings"
 )
 
 type App struct {
@@ -150,6 +151,12 @@ func (a *App) Start() {
 		}
 	})
 
+	// Print rest routes
+	for _, route := range a.externalEcho.Routes() {
+		s := strings.Split(strings.TrimPrefix(route.Path, "/"), "/")
+		a.logger.WithField("module", s[0]).Infof("Rest handler is added: %s", route.Path)
+	}
+
 	// DO NOT EXPOSE INTERNAL ECHO PORT TO PUBLIC NETWORK !!!
 	if !IsProduction() {
 		a.logger.WithField("core", "api").Infof("Listen internal http on http://127.0.0.1:%d", a.opt.InternalPort)
@@ -158,7 +165,7 @@ func (a *App) Start() {
 	}
 	a.logger.WithField("core", "rest").Infof("Listen external http on http://127.0.0.1:%d", a.opt.ExternalPort)
 
-	// start
+	// Start listening
 	go func() {
 		if err := a.internalEcho.Start(fmt.Sprintf(":%d", a.opt.InternalPort)); err != nil {
 			a.logger.WithField("core", "api").Fatalf("Listen error %s", err.Error())

@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/labstack/echo/v4"
 	pie "github.com/lulucas/hasura-pie"
 	"log"
+	"net/http"
 )
 
 type example struct {
@@ -25,6 +27,10 @@ func (m *example) Created(cc pie.CreatedContext) {
 		log.Fatal(err)
 	}
 	fmt.Println(opt.World)
+
+	cc.Rest().POST("/hello", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, "world")
+	})
 }
 
 func main() {

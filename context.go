@@ -32,7 +32,7 @@ type CreatedContext interface {
 	GetSession(ctx context.Context) Session
 	Get(name string) interface{}
 	Logger() Logger
-	Http() *echo.Echo
+	Rest() *echo.Group
 	HandleAction(name string, handler interface{})
 	HandleEvent(name string, handler interface{})
 	LoadConfig(key string, opt interface{}) error
@@ -137,8 +137,8 @@ func (c *moduleContext) Logger() Logger {
 	return c.logger
 }
 
-func (c *moduleContext) Http() *echo.Echo {
-	return c.app.externalEcho
+func (c *moduleContext) Rest() *echo.Group {
+	return c.app.externalEcho.Group("/" + c.module)
 }
 
 // Timer task TODO
