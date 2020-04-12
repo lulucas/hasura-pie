@@ -40,7 +40,7 @@ type CreatedContext interface {
 }
 
 type Session struct {
-	UserId uuid.UUID
+	UserId *uuid.UUID
 	Role   string
 }
 

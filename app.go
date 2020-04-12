@@ -102,10 +102,14 @@ func (a *App) Start() {
 		if h, ok := a.actions[act.Action.Name]; ok {
 			a.logger.WithField("core", "action").Infof("Call %s", act.Action.Name)
 			ctx := c.Request().Context()
-			ctx = context.WithValue(ctx, sessionName, Session{
-				UserId: uuid.FromStringOrNil(act.SessionVariables.XHasuraUserId),
-				Role:   act.SessionVariables.XHasuraRole,
-			})
+			userId := uuid.FromStringOrNil(act.SessionVariables.XHasuraUserId)
+			session := Session{
+				Role: act.SessionVariables.XHasuraRole,
+			}
+			if !uuid.Equal(userId, uuid.Nil) {
+				session.UserId = &userId
+			}
+			ctx = context.WithValue(ctx, sessionName, session)
 			res, err := h.Invoke(ctx, act.Input)
 			if err != nil {
 				return c.JSON(http.StatusBadRequest, hasuraErrorResponse(err))
@@ -125,10 +129,14 @@ func (a *App) Start() {
 		if h, ok := a.events[rawEvt.Trigger.Name]; ok {
 			a.logger.WithField("core", "event").Infof("Trigger %s, %s", rawEvt.Trigger.Name, rawEvt.Id)
 			ctx := c.Request().Context()
-			ctx = context.WithValue(ctx, sessionName, Session{
-				UserId: uuid.FromStringOrNil(rawEvt.Event.SessionVariables.XHasuraUserID),
-				Role:   rawEvt.Event.SessionVariables.XHasuraRole,
-			})
+			userId := uuid.FromStringOrNil(rawEvt.Event.SessionVariables.XHasuraUserID)
+			session := Session{
+				Role: rawEvt.Event.SessionVariables.XHasuraRole,
+			}
+			if !uuid.Equal(userId, uuid.Nil) {
+				session.UserId = &userId
+			}
+			ctx = context.WithValue(ctx, sessionName, session)
 			evt := &Event{
 				Id:        rawEvt.Id,
 				CreatedAt: rawEvt.CreatedAt,
