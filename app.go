@@ -8,11 +8,13 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	"github.com/sarulabs/di"
 	uuid "github.com/satori/go.uuid"
 	"github.com/vrischmann/envconfig"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type App struct {
@@ -26,6 +28,7 @@ type App struct {
 	container    di.Container
 	opt          *option
 	db           *pg.DB
+	cron         *cron.Cron
 }
 
 func NewApp() *App {
@@ -38,6 +41,11 @@ func NewApp() *App {
 
 	db := newDB(logger)
 
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		logger.Fatalf("Load time location error, %s", err.Error())
+	}
+
 	return &App{
 		internalEcho: echo.New(),
 		externalEcho: echo.New(),
@@ -47,6 +55,7 @@ func NewApp() *App {
 		builder:      builder,
 		opt:          opt,
 		db:           db,
+		cron:         cron.New(cron.WithSeconds(), cron.WithLocation(loc)),
 	}
 }
 

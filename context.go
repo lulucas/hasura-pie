@@ -37,6 +37,7 @@ type CreatedContext interface {
 	HandleEvent(name string, handler interface{})
 	LoadConfig(key string, opt interface{}) error
 	SaveConfig(key string, opt interface{}) error
+	HandleCron(name, spec string, cmd func())
 }
 
 type Session struct {
@@ -141,9 +142,12 @@ func (c *moduleContext) Rest() *echo.Group {
 	return c.app.externalEcho.Group("/" + c.module)
 }
 
-// Timer task TODO
-func (c *moduleContext) HandleCron() {
-
+// Scheduler timer
+func (c *moduleContext) HandleCron(name, spec string, cmd func()) {
+	c.logger.Infof("Cron func is added: %s on %s", name, spec)
+	if _, err := c.app.cron.AddFunc(spec, cmd); err != nil {
+		c.logger.Fatalf("Add cron func error, %s", err.Error())
+	}
 }
 
 // Hasura action
