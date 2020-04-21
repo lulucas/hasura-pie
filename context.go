@@ -3,6 +3,7 @@ package pie
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/Rican7/conjson"
 	"github.com/Rican7/conjson/transform"
 	"github.com/go-pg/pg/v9"
@@ -21,9 +22,9 @@ const (
 type BeforeCreatedContext interface {
 	DB() *pg.DB
 	LoadFromEnv(opt interface{})
-	InitConfig(key string, opt interface{})
-	LoadConfig(key string, opt interface{}) error
-	SaveConfig(key string, opt interface{}) error
+	InitConfig(cfg interface{})
+	LoadConfig(cfg interface{}) error
+	SaveConfig(cfg interface{}) error
 	Add(def ...di.Def)
 }
 
@@ -35,8 +36,8 @@ type CreatedContext interface {
 	Rest() *echo.Group
 	HandleAction(name string, handler interface{})
 	HandleEvent(name string, handler interface{})
-	LoadConfig(key string, opt interface{}) error
-	SaveConfig(key string, opt interface{}) error
+	LoadConfig(cfg interface{}) error
+	SaveConfig(cfg interface{}) error
 	HandleCron(name, spec string, cmd func())
 }
 
@@ -74,53 +75,69 @@ func (c *moduleContext) LoadFromEnv(opt interface{}) {
 	c.logger.Debugf("Option value after loaded from env, %+v", opt)
 }
 
-func (c *moduleContext) InitConfig(key string, opt interface{}) {
-	marshaller := conjson.NewMarshaler(opt, transform.ConventionalKeys())
+func (c *moduleContext) InitConfig(cfg interface{}) {
+	t := reflect.TypeOf(cfg)
+	if t.Kind() != reflect.Ptr {
+		c.logger.Fatal("cfg must be pointer")
+	}
+
+	marshaller := conjson.NewMarshaler(cfg, transform.ConventionalKeys())
 	data, err := json.Marshal(marshaller)
 	if err != nil {
 		c.logger.Fatalf("Init config error, %s", err.Error())
 	}
 
-	cfg := Config{
+	key := fmt.Sprintf("%s.%s", c.module, t.Elem().Name())
+
+	config := Config{
 		Key:  key,
 		Data: data,
 	}
-	if _, err := c.app.db.Model(&cfg).OnConflict("DO NOTHING").SelectOrInsert(); err != nil {
+	if _, err := c.app.db.Model(&config).Where("key = ?", key).Limit(1).OnConflict("DO NOTHING").SelectOrInsert(); err != nil {
 		c.logger.Fatalf("Init config error, %s", err.Error())
 	}
 }
 
-func (c *moduleContext) LoadConfig(key string, opt interface{}) error {
-	t := reflect.TypeOf(opt)
+func (c *moduleContext) LoadConfig(cfg interface{}) error {
+	t := reflect.TypeOf(cfg)
 	if t.Kind() != reflect.Ptr {
-		return errors.New("opt must be pointer")
+		return errors.New("cfg must be pointer")
 	}
 
-	cfg := Config{}
-	if err := c.app.db.Model(&cfg).Where("key = ?", key).Select(); err != nil {
+	key := fmt.Sprintf("%s.%s", c.module, t.Elem().Name())
+
+	config := Config{}
+	if err := c.app.db.Model(&config).Where("key = ?", key).Select(); err != nil {
 		if err == pg.ErrNoRows {
 			return errors.Errorf("config key %s not found", key)
 		}
 		return err
 	}
-	if err := json.Unmarshal(cfg.Data, conjson.NewUnmarshaler(opt, transform.ConventionalKeys())); err != nil {
+	if err := json.Unmarshal(config.Data, conjson.NewUnmarshaler(cfg, transform.ConventionalKeys())); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *moduleContext) SaveConfig(key string, opt interface{}) error {
-	marshaller := conjson.NewMarshaler(opt, transform.ConventionalKeys())
+func (c *moduleContext) SaveConfig(cfg interface{}) error {
+	t := reflect.TypeOf(cfg)
+	if t.Kind() != reflect.Ptr {
+		return errors.New("cfg must be pointer")
+	}
+
+	marshaller := conjson.NewMarshaler(cfg, transform.ConventionalKeys())
 	data, err := json.Marshal(marshaller)
 	if err != nil {
 		return err
 	}
 
-	cfg := Config{
+	key := fmt.Sprintf("%s.%s", c.module, t.Elem().Name())
+
+	config := Config{
 		Key:  key,
 		Data: data,
 	}
-	if _, err := c.app.db.Model(&cfg).Where("key = ?", key).Update(); err != nil {
+	if _, err := c.app.db.Model(&config).Where("key = ?", key).Update(); err != nil {
 		return err
 	}
 	return nil

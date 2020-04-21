@@ -174,6 +174,9 @@ func (a *App) Start() {
 		a.logger.WithField("module", s[0]).Infof("Rest handler is added: %s", route.Path)
 	}
 
+	// Start con
+	a.cron.Start()
+
 	// DO NOT EXPOSE INTERNAL ECHO PORT TO PUBLIC NETWORK !!!
 	if !IsProduction() {
 		a.logger.WithField("core", "api").Infof("Listen internal http on http://127.0.0.1:%d", a.opt.InternalPort)

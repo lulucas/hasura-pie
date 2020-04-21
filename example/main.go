@@ -16,14 +16,14 @@ type hello struct {
 }
 
 func (m *example) BeforeCreated(bc pie.BeforeCreatedContext) {
-	bc.InitConfig("hello", hello{
+	bc.InitConfig(&hello{
 		World: "good",
 	})
 }
 
 func (m *example) Created(cc pie.CreatedContext) {
 	opt := &hello{}
-	if err := cc.LoadConfig("hello", opt); err != nil {
+	if err := cc.LoadConfig(opt); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(opt.World)
