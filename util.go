@@ -16,9 +16,20 @@ func StringPtr(s string) *string {
 }
 
 func RestBaseUrl() string {
+	baseUrl := strings.ToLower(os.Getenv("APP_REST_HOST"))
+	if baseUrl == "" {
+		baseUrl = "localhost"
+		port := os.Getenv("APP_EXTERNAL_PORT")
+		if port == "" {
+			port = "8000"
+		}
+		if port != "80" {
+			baseUrl += ":" + port
+		}
+	}
 	if strings.ToLower(os.Getenv("APP_TLS_ENABLED")) == "true" {
-		return "https://" + strings.ToLower(os.Getenv("APP_REST_HOST"))
+		return "https://" + baseUrl
 	} else {
-		return "http://" + strings.ToLower(os.Getenv("APP_REST_HOST"))
+		return "http://" + baseUrl
 	}
 }
