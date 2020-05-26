@@ -19,7 +19,7 @@ type HasuraClaims struct {
 }
 
 // generate jwt token
-func AuthJwt(id, role string) (string, error) {
+func AuthJwt(id, role string, duration time.Duration) (string, error) {
 	claims := &JwtClaims{
 		Hasura: HasuraClaims{
 			AllowedRoles: []string{role},
@@ -27,7 +27,7 @@ func AuthJwt(id, role string) (string, error) {
 			Id:           id,
 		},
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
+			ExpiresAt: time.Now().Add(duration).Unix(),
 		},
 	}
 
