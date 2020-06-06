@@ -97,10 +97,26 @@ func (a *App) Start() {
 	a.internalEcho.HidePort = true
 	a.internalEcho.HideBanner = true
 	a.internalEcho.Use(middleware.CORS())
+	a.internalEcho.HTTPErrorHandler = func(err error, c echo.Context) {
+		if err := c.JSON(http.StatusOK, echo.Map{
+			"error": err.Error(),
+		}); err != nil {
+			a.logger.Error(err)
+		}
+		a.logger.Error(err)
+	}
 
 	a.externalEcho.HidePort = true
 	a.externalEcho.HideBanner = true
 	a.externalEcho.Use(middleware.CORS())
+	a.externalEcho.HTTPErrorHandler = func(err error, c echo.Context) {
+		if err := c.JSON(http.StatusOK, echo.Map{
+			"error": err.Error(),
+		}); err != nil {
+			a.logger.Error(err)
+		}
+		a.logger.Error(err)
+	}
 
 	// Handle hasura actions
 	a.internalEcho.POST("/actions", func(c echo.Context) error {
